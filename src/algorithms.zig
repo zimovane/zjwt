@@ -84,3 +84,23 @@ pub const Ed25519Algorithm = enum {
         return verifier.verify();
     }
 };
+
+test "hmac sign" {
+    var out = HMACAlgorithm.HS256.sign("", "");
+    try utils.assertEqual("b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad", out[0..]);
+
+    out = HMACAlgorithm.HS256.sign("The quick brown fox jumps over the lazy dog", "key");
+    try utils.assertEqual("f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8", out[0..]);
+}
+
+test "hmac verify" {
+    const msg = "The quick brown fox jumps over the lazy dog";
+    const key = "key";
+    const sig = "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8";
+    var sig_bytes: [sig.len / 2]u8 = undefined;
+    for (&sig_bytes, 0..) |*r, i| {
+        r.* = std.fmt.parseInt(u8, sig[2 * i .. 2 * i + 2], 16) catch unreachable;
+    }
+    const result = HMACAlgorithm.HS256.verify(&sig_bytes, msg, key) catch unreachable;
+    try std.testing.expectEqual(true, @TypeOf(result) == void);
+}
