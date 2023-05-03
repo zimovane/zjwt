@@ -13,6 +13,14 @@ pub fn compareSlices(comptime T: type, expected: []const T, actual: []const T) b
     return index == len - 1;
 }
 
+pub fn hexToBytes(comptime expected_hex: [:0]const u8) []const u8 {
+    var expected_bytes: [expected_hex.len / 2]u8 = undefined;
+    for (&expected_bytes, 0..) |*r, i| {
+        r.* = fmt.parseInt(u8, expected_hex[2 * i .. 2 * i + 2], 16) catch unreachable;
+    }
+    return &expected_bytes;
+}
+
 // Hash using the specified hasher `H` asserting `expected == H(input)`.
 pub fn assertEqualHash(comptime Hasher: anytype, comptime expected_hex: *const [Hasher.digest_length * 2:0]u8, input: []const u8) !void {
     var h: [Hasher.digest_length]u8 = undefined;
@@ -23,10 +31,6 @@ pub fn assertEqualHash(comptime Hasher: anytype, comptime expected_hex: *const [
 
 // Assert `expected` == hex(`input`) where `input` is a bytestring
 pub fn assertEqual(comptime expected_hex: [:0]const u8, input: []const u8) !void {
-    var expected_bytes: [expected_hex.len / 2]u8 = undefined;
-    for (&expected_bytes, 0..) |*r, i| {
-        r.* = fmt.parseInt(u8, expected_hex[2 * i .. 2 * i + 2], 16) catch unreachable;
-    }
-
-    try testing.expectEqualSlices(u8, &expected_bytes, input);
+    const expected_bytes = hexToBytes(expected_hex);
+    try testing.expectEqualSlices(u8, expected_bytes, input);
 }
