@@ -21,12 +21,13 @@ pub const HMACAlgorithm = enum {
         };
     }
 
-    pub fn verify(comptime self: Self, sig_bytes: []const u8, msg: []const u8, key: []const u8) Err.SignatureVerificationError!void {
-        const sig = self.sign(msg, key);
-        if (utils.compareSlices(u8, sig_bytes, &sig)) {
+    pub fn verify(comptime self: Self, comptime expected: []const u8, msg: []const u8, key: []const u8) Err.SignatureVerificationError!void {
+        const sig = &self.sign(msg, key);
+        var bytes: [32]u8 = undefined;
+        _ = std.fmt.hexToBytes(&bytes, expected) catch unreachable;
+        if (!std.mem.eql(u8, sig, &bytes)) {
             return Err.SignatureVerificationError.SignatureVerificationFailed;
         }
-        return;
     }
 
     pub fn sign(comptime self: Self, msg: []const u8, key: []const u8) [self.sha2().mac_length]u8 {
@@ -87,17 +88,15 @@ pub const Ed25519Algorithm = enum {
 
 test "hmac sign" {
     var out = HMACAlgorithm.HS256.sign("", "");
-    try utils.assertEqual("b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad", out[0..]);
-
+    try utils.assertEqual("b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad", &out);
     out = HMACAlgorithm.HS256.sign("The quick brown fox jumps over the lazy dog", "key");
-    try utils.assertEqual("f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8", out[0..]);
+    try utils.assertEqual("f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8", &out);
 }
 
 test "hmac verify" {
     const msg = "The quick brown fox jumps over the lazy dog";
     const key = "key";
     const sig = "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8";
-    const sig_bytes = utils.hexToBytes(sig);
-    const result = HMACAlgorithm.HS256.verify(sig_bytes, msg, key) catch unreachable;
+    const result = HMACAlgorithm.HS256.verify(sig, msg, key) catch unreachable;
     try std.testing.expectEqual(true, @TypeOf(result) == void);
 }
