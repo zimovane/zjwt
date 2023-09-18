@@ -52,6 +52,12 @@ pub const EcdsaAlgorithm = enum {
         };
     }
 
+    pub fn sign(comptime self: Self, data: []const u8) [self.ecdsa().mac_length]u8 {
+        const alg = self.ecdsa();
+        alg.Signer.update(data);
+        return alg.Signer.finalize().toBytes();
+    }
+
     pub fn verify(comptime self: Self, sig_bytes: []const u8, msg: []const u8, pbkey_bytes: []const u8) (Err.IdentityElementError || Err.NonCanonicalError || Err.SignatureVerificationError)!void {
         const alg = self.ecdsa();
         const sig = alg.Signature.fromBytes(sig_bytes);
@@ -64,19 +70,24 @@ pub const EcdsaAlgorithm = enum {
 
 pub const RSAAlgorithm = enum {
     const Self = @This();
-    RS256,
-    RS384,
-    RS512,
-    pub fn verify(_: Self, sig_bytes: []u8, msg: []const u8, pbkey_bytes: []u8) void {
-        _ = pbkey_bytes;
-        _ = msg;
-        _ = sig_bytes;
+    RSA,
+    pub fn sign(_: Self, modulus_len: usize, data: []const u8, pbkey_bytes: []u8) [modulus_len]u8 {
+        return RSA.encrypt(modulus_len, data, pbkey_bytes);
+    }
+    pub fn verify(_: Self, modulus_len: usize, sig_bytes: []u8, msg: []const u8, pbkey_bytes: []u8) void {
+        return RSA.PSSSignature.verify(modulus_len, sig_bytes, msg, pbkey_bytes);
     }
 };
 
 pub const Ed25519Algorithm = enum {
     const Self = @This();
     EdDSA,
+
+    pub fn sign(comptime self: Self, data: []const u8) [self.ecdsa().mac_length]u8 {
+        Ed25519.Signer.update(data);
+        return Ed25519.Signer.finalize().toBytes();
+    }
+
     pub fn verify(comptime _: Self, sig_bytes: []const u8, msg: []const u8, pbkey_bytes: []const u8) (Err.SignatureVerificationError || Err.IdentityElementError || Err.WeakPublicKeyError || Err.EncodingError || Err.NonCanonicalError)!void {
         const sig = Ed25519.Signature.fromBytes(sig_bytes);
         const pbkey = try Ed25519.Publickey.fromBytes(pbkey_bytes);
